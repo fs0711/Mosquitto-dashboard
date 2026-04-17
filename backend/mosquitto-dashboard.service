@@ -1,0 +1,20 @@
+[Unit]
+Description=Mosquitto Dashboard Backend
+After=network.target mosquitto.service
+
+[Service]
+Type=simple
+User=root
+Group=root
+WorkingDirectory=/home/mqtt-dashboard/backend
+Environment="PATH=/home/mqtt-dashboard/venv/bin"
+ExecStart=/home/mqtt-dashboard/venv/bin/python run.py
+Restart=on-failure
+RestartSec=5s
+
+# Security settings
+NoNewPrivileges=true
+PrivateTmp=true
+
+[Install]
+WantedBy=multi-user.target
