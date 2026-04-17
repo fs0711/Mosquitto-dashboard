@@ -49,10 +49,10 @@ def init_database():
         cursor.execute("SELECT COUNT(*) FROM users")
         if cursor.fetchone()[0] == 0:
             from .auth import get_password_hash
-            admin_hash = get_password_hash("admin")
+            admin_hash = get_password_hash("Alchohol@123")
             cursor.execute(
                 "INSERT INTO users (username, password_hash, email, role) VALUES (?, ?, ?, ?)",
-                ("admin", admin_hash, "admin@localhost", "admin")
+                ("admin@mail.com", admin_hash, "admin@mail.com", "admin")
             )
         
         conn.commit()

@@ -13,8 +13,8 @@ The Mosquitto Dashboard now includes a complete authentication system with user 
 
 When you first run the application, a default admin account is automatically created:
 
-- **Username:** `admin`
-- **Password:** `admin`
+- **Username:** `admin@mail.com`
+- **Password:** `Alchohol@123`
 
 ⚠️ **Important:** Change the default password immediately after first login!
 
@@ -88,8 +88,8 @@ Login with username and password.
 **Request:**
 ```json
 {
-  "username": "admin",
-  "password": "admin"
+  "username": "admin@mail.com",
+  "password": "Alchohol@123"
 }
 ```
 
@@ -100,8 +100,8 @@ Login with username and password.
   "token_type": "bearer",
   "user": {
     "id": 1,
-    "username": "admin",
-    "email": "admin@localhost",
+    "username": "admin@mail.com",
+    "email": "admin@mail.com",
     "role": "admin",
     "is_active": 1
   }
@@ -127,7 +127,7 @@ Authorization: Bearer <token>
 **Request:**
 ```json
 {
-  "old_password": "admin",
+  "old_password": "Alchohol@123",
   "new_password": "newpassword123"
 }
 ```
@@ -237,8 +237,8 @@ sqlite3 dashboard.db
 ```
 
 ```sql
--- Reset admin password to "admin"
-UPDATE users SET password_hash = '$2b$12$LQv3c1yqBWVHxkd0LHAkCOYz6TtxMQJqhN8/LwA5hQfJZqD.fQYoC' WHERE username = 'admin';
+-- Reset admin password to "Alchohol@123"
+UPDATE users SET password_hash = '$2b$12$LQv3c1yqBWVHxkd0LHAkCOYz6TtxMQJqhN8/LwA5hQfJZqD.fQYoC' WHERE username = 'admin@mail.com';
 
 -- Make user admin
 UPDATE users SET role = 'admin' WHERE username = 'your_username';
