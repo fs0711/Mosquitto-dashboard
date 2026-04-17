@@ -13,7 +13,7 @@ from services.auth import (
     decode_token
 )
 
-router = APIRouter(prefix="/auth", tags=["authentication"])
+router = APIRouter(prefix="/api/auth", tags=["authentication"])
 security = HTTPBearer()
 
 
