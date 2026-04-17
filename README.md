@@ -5,6 +5,23 @@ Features: live metrics (`$SYS` topics), listener overview, topic tree, log viewe
 
 ---
 
+## 📚 Documentation
+
+- **[AUTHENTICATION.md](AUTHENTICATION.md)** - Complete authentication system guide (login, user management, JWT tokens)
+- **[DEPLOYMENT.md](DEPLOYMENT.md)** - Deployment checklist and troubleshooting guide
+- **[NGINX_INSTALLATION.md](frontend/NGINX_INSTALLATION.md)** - Nginx setup for production
+- **[SYSTEMD_INSTALLATION.md](backend/SYSTEMD_INSTALLATION.md)** - Systemd service setup
+
+### Quick Start
+
+**Default Login Credentials:**
+- Username: `admin@mail.com`
+- Password: `Alchohol@123`
+
+⚠️ Change these immediately after first login!
+
+---
+
 ## Prerequisites
 
 | Dependency | Minimum version |
