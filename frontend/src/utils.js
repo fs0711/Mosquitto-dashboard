@@ -70,7 +70,23 @@ export function isMobile() {
 }
 
 export async function fetchData(endpoint, opts = {}) {
-  const res = await fetch(endpoint, { ...opts, headers: { Accept: "application/json" } });
+  const token = localStorage.getItem("auth_token");
+  const headers = { Accept: "application/json", ...opts.headers };
+  
+  if (token) {
+    headers.Authorization = `Bearer ${token}`;
+  }
+  
+  const res = await fetch(endpoint, { ...opts, headers });
+  
+  // Handle 401 errors by redirecting to login
+  if (res.status === 401) {
+    localStorage.removeItem("auth_token");
+    localStorage.removeItem("auth_user");
+    window.location.href = "/login";
+    throw new Error("Unauthorized");
+  }
+  
   if (!res.ok) throw new Error(`Failed to fetch: ${res.status} ${res.statusText}`);
   return res.json();
 }

@@ -10,7 +10,8 @@ from fastapi.staticfiles import StaticFiles
 from config import BACKEND_HOST, BACKEND_PORT
 from services.mqtt_client import mqtt_client
 from services.log_watcher import log_watcher
-from routers import systree, listeners, websocket, users, acl, config, tls, broker
+from services.database import init_database
+from routers import systree, listeners, websocket, users, acl, config, tls, broker, auth
 
 logging.basicConfig(
     level=logging.INFO,
@@ -21,6 +22,8 @@ logger = logging.getLogger(__name__)
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
+    # Initialize database
+    init_database()
     loop = asyncio.get_event_loop()
     mqtt_client.start(loop)
     log_watcher.start()
@@ -37,16 +40,22 @@ app = FastAPI(
     lifespan=lifespan,
 )
 
-# Allow Vite dev server during development
+# Allow Vite dev server during development and production domain
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["http://localhost:5173", "http://localhost:3000"],
+    allow_origins=[
+        "http://localhost:5173",
+        "http://localhost:3000",
+        "https://mqtt.zvolta.com",
+        "http://mqtt.zvolta.com"
+    ],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
 )
 
 # Routers
+app.include_router(auth.router)
 app.include_router(systree.router)
 app.include_router(listeners.router)
 app.include_router(websocket.router)

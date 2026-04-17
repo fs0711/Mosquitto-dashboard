@@ -1,5 +1,6 @@
 import { useEffect, useRef } from "react";
 import { NavLink, Outlet, useLocation } from "react-router-dom";
+import { useAuth } from "../contexts/AuthContext";
 
 const NAV = [
   { to: "/",         label: "Dashboard" },
@@ -10,11 +11,13 @@ const NAV = [
   { to: "/acl",      label: "ACL" },
   { to: "/tls",      label: "TLS Certs" },
   { to: "/config",   label: "Config" },
+  { to: "/user-management", label: "User Management", adminOnly: true },
 ];
 
 export default function Layout() {
   const location = useLocation();
   const menuRef = useRef(null);
+  const { user, logout, isAdmin } = useAuth();
 
   function openSidebar()  { document.documentElement.classList.add("sidebar-open");    sessionStorage.setItem("isSidebarOpen", "true"); }
   function closeSidebar() { document.documentElement.classList.remove("sidebar-open"); sessionStorage.setItem("isSidebarOpen", "false"); }
@@ -82,7 +85,7 @@ export default function Layout() {
 
         {/* Nav */}
         <nav className="flex-1 overflow-y-auto p-6 space-y-1">
-          {NAV.map(({ to, label }) => (
+          {NAV.filter(item => !item.adminOnly || isAdmin).map(({ to, label }) => (
             <NavLink
               key={to}
               to={to}
@@ -97,7 +100,17 @@ export default function Layout() {
         </nav>
 
         {/* Footer */}
-        <div className="border-t border-gray-200 p-6">
+        <div className="border-t border-gray-200 p-6 space-y-3">
+          <div className="text-sm text-gray-600">
+            <div className="font-medium">{user?.username}</div>
+            <div className="text-xs text-gray-500 capitalize">{user?.role}</div>
+          </div>
+          <button
+            onClick={logout}
+            className="block w-full text-center bg-red-600 text-white py-2 px-4 rounded-md hover:bg-red-700 transition-colors"
+          >
+            Logout
+          </button>
           <a
             href="https://mosquitto.org/documentation"
             target="_blank"
