@@ -34,6 +34,7 @@ class RedisClient:
                 db=REDIS_DB,
                 decode_responses=True,
                 socket_connect_timeout=5,
+                protocol=2,
             )
             self._r.ping()
             self._last_error = ""
