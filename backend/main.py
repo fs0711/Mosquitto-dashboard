@@ -12,7 +12,7 @@ from services.mqtt_client import mqtt_client
 from services.log_watcher import log_watcher
 from services.database import init_database
 from services.redis_client import redis_client
-from routers import systree, listeners, websocket, users, acl, config, tls, broker, auth, topics
+from routers import systree, listeners, websocket, users, acl, config, tls, broker, auth, topics, redis_stats
 
 logging.basicConfig(
     level=logging.INFO,
@@ -68,6 +68,7 @@ app.include_router(config.router)
 app.include_router(tls.router)
 app.include_router(broker.router)
 app.include_router(topics.router)
+app.include_router(redis_stats.router)
 
 # Serve compiled React SPA from ../frontend/dist if it exists
 _frontend_dist = Path(__file__).parent.parent / "frontend" / "dist"

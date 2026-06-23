@@ -22,7 +22,9 @@ async def ws_topics(websocket: WebSocket):
     logger.info("Topics WS client connected")
 
     # Send stored history for all known topics as initial snapshot
-    for topic in redis_client.get_all_topics():
+    topics = redis_client.get_all_topics()
+    logger.info("Topics WS snapshot: %d topics in Redis", len(topics))
+    for topic in topics:
         for msg in reversed(redis_client.get_history(topic)):
             try:
                 await websocket.send_text(json.dumps({"type": "message", "data": msg}))

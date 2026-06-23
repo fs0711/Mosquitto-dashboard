@@ -1,4 +1,5 @@
 import { useRef, useEffect, useState, useCallback } from "react";
+import { fetchData } from "../utils";
 import {
   Chart as ChartJS,
   CategoryScale,
@@ -158,8 +159,30 @@ const SYS_CHART_MAP = {
   "clients-disconnected":   "$SYS/broker/clients/disconnected",
 };
 
+// ──────────────────────────────────────────────────────────────────────
+// Redis stats hook
+// ──────────────────────────────────────────────────────────────────────
+
+function useRedisStats() {
+  const [stats, setStats] = useState(null);
+  useEffect(() => {
+    let cancelled = false;
+    async function poll() {
+      try {
+        const data = await fetchData("/api/v1/redis/stats");
+        if (!cancelled) setStats(data);
+      } catch { /* ignore */ }
+      if (!cancelled) setTimeout(poll, 10000);
+    }
+    poll();
+    return () => { cancelled = true; };
+  }, []);
+  return stats;
+}
+
 export default function Dashboard() {
   const { data: sys, online } = useSysTree();
+  const redis = useRedisStats();
 
   // Chart history stored in a ref so it doesn't trigger re-renders on every datapoint
   const history = useRef(Object.fromEntries(CHART_IDS.map(id => [id, createChartState()])));
@@ -244,6 +267,31 @@ export default function Dashboard() {
         <StatCard label="Msg Rate 1m (sent)"  value={get("$SYS/broker/load/messages/sent/1min") ?? "—"} />
         <StatCard label="Msg Rate 10m (recv)" value={get("$SYS/broker/load/messages/received/10min") ?? "—"} />
         <StatCard label="Msg Rate 10m (sent)" value={get("$SYS/broker/load/messages/sent/10min") ?? "—"} />
+      </div>
+
+      {/* Redis stats */}
+      <div className="card p-6">
+        <div className="flex items-center gap-2 mb-4">
+          <span className={`status-dot ${redis?.available === false ? "broker-inactive" : "broker-active"}`} />
+          <h3 className="text-sm font-semibold text-gray-700">Redis</h3>
+          {redis?.version && <span className="text-xs text-gray-400">v{redis.version}</span>}
+          {redis?.available === false && <span className="text-xs text-red-400 ml-1">Unavailable</span>}
+        </div>
+        {redis?.available !== false && (
+          <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-6 gap-4">
+            <StatCard label="Uptime"              value={redis ? secondsToIntervalString(redis.uptime_seconds) : "—"} />
+            <StatCard label="Clients"             value={redis?.connected_clients ?? "—"} />
+            <StatCard label="Memory Used"         value={redis?.used_memory_human ?? "—"} />
+            <StatCard label="Memory Peak"         value={redis?.used_memory_peak_human ?? "—"} />
+            <StatCard label="Topic Keys"          value={redis?.topic_keys ?? "—"} />
+            <StatCard label="Live Subscribers"    value={redis?.pubsub_numsub ?? "—"} />
+            <StatCard label="Pubsub Channels"     value={redis?.pubsub_channels ?? "—"} />
+            <StatCard label="Commands Processed"  value={redis ? prettifyNumber(redis.total_commands_processed) : "—"} />
+            <StatCard label="Connections Total"   value={redis ? prettifyNumber(redis.total_connections_received) : "—"} />
+            <StatCard label="Keyspace Hits"       value={redis ? prettifyNumber(redis.keyspace_hits) : "—"} />
+            <StatCard label="Keyspace Misses"     value={redis ? prettifyNumber(redis.keyspace_misses) : "—"} />
+          </div>
+        )}
       </div>
 
       {/* Charts */}
