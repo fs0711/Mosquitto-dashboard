@@ -22,6 +22,7 @@ class RedisClient:
         self._loop: asyncio.AbstractEventLoop | None = None
         self._subscribers: Set[Callable] = set()
         self._lock = threading.Lock()
+        self._last_error: str = ""
 
     def connect(self, loop: asyncio.AbstractEventLoop | None = None) -> None:
         self._loop = loop
@@ -35,8 +36,10 @@ class RedisClient:
                 socket_connect_timeout=5,
             )
             self._r.ping()
+            self._last_error = ""
             logger.info("Connected to Redis at %s:%s", REDIS_HOST, REDIS_PORT)
         except Exception as exc:
+            self._last_error = str(exc)
             logger.error("Redis connect failed: %s", exc)
             self._r = None
             return

@@ -9,7 +9,7 @@ async def get_redis_stats():
     """Return key Redis INFO fields plus mqtt:history key count."""
     r = redis_client._r
     if not r:
-        return {"available": False}
+        return {"available": False, "error": redis_client._last_error}
 
     try:
         info = r.info()
@@ -40,7 +40,7 @@ async def redis_debug(pattern: str = Query("mqtt:history:*")):
     r = redis_client._r
     if not r:
         from config import REDIS_HOST, REDIS_PORT, REDIS_DB
-        return {"available": False, "config": {"host": REDIS_HOST, "port": REDIS_PORT, "db": REDIS_DB}}
+        return {"available": False, "config": {"host": REDIS_HOST, "port": REDIS_PORT, "db": REDIS_DB}, "error": redis_client._last_error}
     try:
         keys = r.keys(pattern)
         sample = {}
