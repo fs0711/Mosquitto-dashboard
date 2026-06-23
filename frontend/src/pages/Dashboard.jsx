@@ -275,7 +275,7 @@ export default function Dashboard() {
           <span className={`status-dot ${redis?.available === false ? "broker-inactive" : "broker-active"}`} />
           <h3 className="text-sm font-semibold text-gray-700">Redis</h3>
           {redis?.version && <span className="text-xs text-gray-400">v{redis.version}</span>}
-          {redis?.available === false && <span className="text-xs text-red-400 ml-1">Unavailable</span>}
+          {redis?.available === false && <span className="text-xs text-red-400 ml-1">Unavailable{redis.error ? `: ${redis.error}` : ""}</span>}
         </div>
         {redis?.available !== false && (
           <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-6 gap-4">
@@ -284,7 +284,6 @@ export default function Dashboard() {
             <StatCard label="Memory Used"         value={redis?.used_memory_human ?? "—"} />
             <StatCard label="Memory Peak"         value={redis?.used_memory_peak_human ?? "—"} />
             <StatCard label="Topic Keys"          value={redis?.topic_keys ?? "—"} />
-            <StatCard label="Live Subscribers"    value={redis?.pubsub_numsub ?? "—"} />
             <StatCard label="Pubsub Channels"     value={redis?.pubsub_channels ?? "—"} />
             <StatCard label="Commands Processed"  value={redis ? prettifyNumber(redis.total_commands_processed) : "—"} />
             <StatCard label="Connections Total"   value={redis ? prettifyNumber(redis.total_connections_received) : "—"} />

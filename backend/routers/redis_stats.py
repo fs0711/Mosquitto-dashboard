@@ -1,7 +1,10 @@
+import logging
+
 from fastapi import APIRouter, Query
 from services.redis_client import redis_client
 
 router = APIRouter()
+logger = logging.getLogger(__name__)
 
 
 @router.get("/api/v1/redis/stats")
@@ -27,10 +30,10 @@ async def get_redis_stats():
             "keyspace_hits": info.get("keyspace_hits"),
             "keyspace_misses": info.get("keyspace_misses"),
             "pubsub_channels": info.get("pubsub_channels"),
-            "pubsub_numsub": r.pubsub_numsub("mqtt:live").get("mqtt:live", 0),
             "topic_keys": topic_count,
         }
     except Exception as exc:
+        logger.error("Redis stats failed: %s", exc)
         return {"available": False, "error": str(exc)}
 
 

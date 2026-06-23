@@ -11,7 +11,8 @@ from config import REDIS_HOST, REDIS_PORT, REDIS_PASSWORD, REDIS_DB, TOPIC_HISTO
 logger = logging.getLogger(__name__)
 
 HISTORY_KEY_PREFIX = "mqtt:history:"
-LIVE_CHANNEL = "mqtt:live"
+# Keyspace pattern: fires on every LPUSH to any mqtt:history:* key
+_KEYSPACE_PATTERN = f"__keyspace@{REDIS_DB}__:{HISTORY_KEY_PREFIX}*"
 
 
 class RedisClient:
@@ -36,6 +37,8 @@ class RedisClient:
                 socket_connect_timeout=5,
             )
             self._r.ping()
+            # Enable keyspace notifications for list commands (Kl)
+            self._r.config_set("notify-keyspace-events", "Kl")
             self._last_error = ""
             logger.info("Connected to Redis at %s:%s", REDIS_HOST, REDIS_PORT)
         except Exception as exc:
@@ -54,7 +57,7 @@ class RedisClient:
             self._r.close()
 
     # ------------------------------------------------------------------ #
-    #  Pub/Sub subscription management                                     #
+    #  WebSocket subscriber management                                     #
     # ------------------------------------------------------------------ #
 
     def subscribe(self, callback: Callable) -> None:
@@ -65,26 +68,45 @@ class RedisClient:
         with self._lock:
             self._subscribers.discard(callback)
 
+    # ------------------------------------------------------------------ #
+    #  Keyspace notification listener (background thread)                  #
+    # ------------------------------------------------------------------ #
+
     def _pubsub_loop(self) -> None:
-        """Blocking loop in a background thread — listens on mqtt:live and fans out."""
+        """Listens for LPUSH keyspace events on mqtt:history:* keys."""
         try:
             ps = self._r.pubsub(ignore_subscribe_messages=True)
-            ps.subscribe(LIVE_CHANNEL)
-            logger.info("Redis Pub/Sub subscribed to channel '%s'", LIVE_CHANNEL)
+            ps.psubscribe(_KEYSPACE_PATTERN)
+            logger.info("Redis keyspace notifications active (pattern: %s)", _KEYSPACE_PATTERN)
             while not self._stop_event.is_set():
                 msg = ps.get_message(timeout=1.0)
-                if msg and msg["type"] == "message":
-                    self._dispatch(msg["data"])
-            ps.unsubscribe()
+                if not msg:
+                    continue
+                # msg["type"] == "pmessage", msg["channel"] == "__keyspace@0__:mqtt:history:<topic>"
+                if msg.get("data") != "lpush":
+                    continue
+                channel: str = msg.get("channel", "")
+                prefix = f"__keyspace@{REDIS_DB}__:{HISTORY_KEY_PREFIX}"
+                if not channel.startswith(prefix):
+                    continue
+                topic = channel[len(prefix):]
+                self._fetch_and_dispatch(topic)
+            ps.punsubscribe()
         except Exception as exc:
-            logger.error("Redis Pub/Sub loop error: %s", exc)
+            logger.error("Redis keyspace loop error: %s", exc)
 
-    def _dispatch(self, raw: str) -> None:
-        if not self._loop:
-            return
+    def _fetch_and_dispatch(self, topic: str) -> None:
+        """Read the newest message for topic from Redis and broadcast to WS clients."""
         try:
+            raw = self._r.lindex(HISTORY_KEY_PREFIX + topic, 0)
+            if not raw:
+                return
             message = json.loads(raw)
-        except Exception:
+        except Exception as exc:
+            logger.warning("Redis fetch for dispatch failed: %s", exc)
+            return
+
+        if not self._loop:
             return
         with self._lock:
             callbacks = list(self._subscribers)
@@ -99,7 +121,7 @@ class RedisClient:
     # ------------------------------------------------------------------ #
 
     def push_message(self, message: dict) -> None:
-        """Store + trim per-topic history. Also publishes to mqtt:live."""
+        """Store + trim per-topic history (used if this backend writes to Redis)."""
         if not self._r:
             return
         key = HISTORY_KEY_PREFIX + message["topic"]
@@ -107,7 +129,6 @@ class RedisClient:
             pipe = self._r.pipeline()
             pipe.lpush(key, json.dumps(message))
             pipe.ltrim(key, 0, TOPIC_HISTORY_LENGTH - 1)
-            pipe.publish(LIVE_CHANNEL, json.dumps(message))
             pipe.execute()
         except Exception as exc:
             logger.warning("Redis push failed: %s", exc)
