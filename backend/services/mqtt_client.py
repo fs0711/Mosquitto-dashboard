@@ -11,16 +11,12 @@ from services.redis_client import redis_client
 
 logger = logging.getLogger(__name__)
 
-# Maximum messages kept in the topic ring buffer
-TOPIC_BUFFER_SIZE = 500
-# Maximum log lines kept in the log-via-mqtt ring buffer
 LOG_BUFFER_SIZE = 200
 
 
 class MqttClient:
     def __init__(self) -> None:
         self._sys_topics: dict[str, str] = {}
-        self._topic_messages: deque[dict] = deque(maxlen=TOPIC_BUFFER_SIZE)
         self._mqtt_log_lines: deque[str] = deque(maxlen=LOG_BUFFER_SIZE)
 
         self._topic_subscribers: Set[Callable] = set()
@@ -62,11 +58,6 @@ class MqttClient:
     def sys_topics(self) -> dict[str, str]:
         with self._lock:
             return dict(self._sys_topics)
-
-    @property
-    def topic_messages(self) -> list[dict]:
-        with self._lock:
-            return list(self._topic_messages)
 
     @property
     def mqtt_log_lines(self) -> list[str]:
@@ -121,7 +112,6 @@ class MqttClient:
                     "qos": msg.qos,
                     "retain": msg.retain,
                 }
-                self._topic_messages.append(message)
                 redis_client.push_message(message)
                 self._broadcast_topic(message)
 

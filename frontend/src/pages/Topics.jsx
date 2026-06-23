@@ -12,8 +12,7 @@ function setNestedPath(tree, parts, message) {
     const part = parts[i];
     if (!node[part]) node[part] = { _messages: [], _children: {} };
     if (i === parts.length - 1) {
-      // Keep last 20 messages per leaf
-      node[part]._messages = [message, ...node[part]._messages].slice(0, 20);
+      node[part]._messages = [message, ...node[part]._messages].slice(0, 30);
     }
     node = node[part]._children;
   }
