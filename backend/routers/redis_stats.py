@@ -39,7 +39,8 @@ async def redis_debug(pattern: str = Query("mqtt:history:*")):
     """List keys matching pattern and return sample data. For diagnostics only."""
     r = redis_client._r
     if not r:
-        return {"available": False}
+        from config import REDIS_HOST, REDIS_PORT, REDIS_DB
+        return {"available": False, "config": {"host": REDIS_HOST, "port": REDIS_PORT, "db": REDIS_DB}}
     try:
         keys = r.keys(pattern)
         sample = {}
