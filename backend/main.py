@@ -25,8 +25,8 @@ logger = logging.getLogger(__name__)
 async def lifespan(app: FastAPI):
     # Initialize database
     init_database()
-    redis_client.connect()
     loop = asyncio.get_event_loop()
+    redis_client.connect(loop)
     mqtt_client.start(loop)
     log_watcher.start()
     logger.info("Mosquitto Dashboard backend started")

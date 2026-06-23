@@ -1,6 +1,5 @@
 import { useState, useCallback, useRef, useEffect } from "react";
 import { useWebSocket } from "../hooks/useWebSocket";
-import { fetchData } from "../utils";
 
 // ──────────────────────────────────────────────────────────────────────
 // Topic tree builder
@@ -94,29 +93,21 @@ function MessageRow({ m }) {
 // ──────────────────────────────────────────────────────────────────────
 
 export default function Topics() {
-  const [tree, setTree] = useState({});           // topic tree
-  const [messages, setMessages] = useState([]);   // flat feed (capped)
+  const [tree, setTree] = useState({});
+  const [messages, setMessages] = useState([]);
   const [selectedTopic, setSelectedTopic] = useState(null);
   const [search, setSearch] = useState("");
-  const [loadingHistory, setLoadingHistory] = useState(false);
   const treeRef = useRef({});
   const messagesRef = useRef([]);
-  const liveTopicsRef = useRef(new Set()); // topics seen in this session
 
   const onMessage = useCallback((evt) => {
     try {
       const { type, data } = JSON.parse(evt.data);
       if (type !== "message") return;
-      const parts = data.topic.split("/").filter(Boolean);
-      if (!parts.length) return;
+      if (!data.topic) return;
 
-      // Track topics seen live so history isn't re-fetched for already-loaded ones
-      liveTopicsRef.current.add(data.topic);
-
-      // Update flat feed
       messagesRef.current = [data, ...messagesRef.current].slice(0, 500);
 
-      // Update tree (clone needed to trigger re-render)
       const newTree = { ...treeRef.current };
       setNestedPath(newTree, data.topic.split("/"), data);
       treeRef.current = newTree;
@@ -128,40 +119,12 @@ export default function Topics() {
 
   useWebSocket("/ws/topics", onMessage);
 
-  // Fetch stored history from Redis when a topic is selected and hasn't been seen live yet
-  useEffect(() => {
-    if (!selectedTopic) return;
-    // If we already have live messages for this topic, history is already flowing in
-    if (liveTopicsRef.current.has(selectedTopic)) return;
-
-    let cancelled = false;
-    setLoadingHistory(true);
-    fetchData(`/api/v1/topics/history?topic=${encodeURIComponent(selectedTopic)}`)
-      .then((history) => {
-        if (cancelled || !history.length) return;
-        // Merge history into flat feed and tree without duplicating live messages
-        const newTree = { ...treeRef.current };
-        const existing = new Set(messagesRef.current.map(m => m.topic + m.payload));
-        const toAdd = history.filter(m => !existing.has(m.topic + m.payload));
-        if (!toAdd.length) return;
-        messagesRef.current = [...messagesRef.current, ...toAdd].slice(0, 500);
-        for (const m of toAdd) {
-          setNestedPath(newTree, m.topic.split("/"), m);
-        }
-        treeRef.current = newTree;
-        setMessages([...messagesRef.current]);
-        setTree({ ...treeRef.current });
-      })
-      .catch(() => {})
-      .finally(() => { if (!cancelled) setLoadingHistory(false); });
-
-    return () => { cancelled = true; };
-  }, [selectedTopic]);
-
   const filteredMessages = messages.filter(m =>
     !selectedTopic || m.topic === selectedTopic || m.topic.startsWith(selectedTopic + "/")
   ).filter(m =>
-    !search || m.topic.toLowerCase().includes(search.toLowerCase()) || m.payload.toLowerCase().includes(search.toLowerCase())
+    !search ||
+    m.topic.toLowerCase().includes(search.toLowerCase()) ||
+    m.payload.toLowerCase().includes(search.toLowerCase())
   );
 
   const rootKeys = Object.keys(tree);
@@ -195,7 +158,6 @@ export default function Topics() {
         {/* Message feed */}
         <div className="card flex-1 flex flex-col overflow-hidden">
           <div className="card-header flex items-center gap-3 py-3">
-            {loadingHistory && <span className="text-xs text-gray-400 animate-pulse">Loading history…</span>}
             <input
               type="text"
               placeholder="Filter by topic or payload…"

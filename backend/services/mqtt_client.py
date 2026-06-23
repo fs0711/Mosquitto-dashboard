@@ -7,7 +7,6 @@ from typing import Callable, Set
 import paho.mqtt.client as mqtt
 
 from config import MQTT_HOST, MQTT_PORT, MQTT_USERNAME, MQTT_PASSWORD
-from services.redis_client import redis_client
 
 logger = logging.getLogger(__name__)
 
@@ -19,7 +18,6 @@ class MqttClient:
         self._sys_topics: dict[str, str] = {}
         self._mqtt_log_lines: deque[str] = deque(maxlen=LOG_BUFFER_SIZE)
 
-        self._topic_subscribers: Set[Callable] = set()
         self._log_subscribers: Set[Callable] = set()
 
         self._loop: asyncio.AbstractEventLoop | None = None
@@ -41,7 +39,6 @@ class MqttClient:
     # ------------------------------------------------------------------ #
 
     def start(self, loop: asyncio.AbstractEventLoop) -> None:
-        """Connect to the broker and start the network loop in a background thread."""
         self._loop = loop
         try:
             self._client.connect(MQTT_HOST, MQTT_PORT, keepalive=60)
@@ -64,12 +61,6 @@ class MqttClient:
         with self._lock:
             return list(self._mqtt_log_lines)
 
-    def subscribe_topics(self, callback: Callable) -> None:
-        self._topic_subscribers.add(callback)
-
-    def unsubscribe_topics(self, callback: Callable) -> None:
-        self._topic_subscribers.discard(callback)
-
     def subscribe_logs(self, callback: Callable) -> None:
         self._log_subscribers.add(callback)
 
@@ -84,7 +75,6 @@ class MqttClient:
         if reason_code == 0:
             logger.info("Connected to Mosquitto at %s:%s", MQTT_HOST, MQTT_PORT)
             client.subscribe("$SYS/#")
-            client.subscribe("#")
         else:
             logger.error("MQTT connection refused: %s", reason_code)
 
@@ -101,32 +91,13 @@ class MqttClient:
         with self._lock:
             if topic.startswith("$SYS/"):
                 self._sys_topics[topic] = payload
-
                 if topic.startswith("$SYS/broker/log/"):
                     self._mqtt_log_lines.append(payload)
                     self._broadcast_log(payload)
-            else:
-                message = {
-                    "topic": topic,
-                    "payload": payload,
-                    "qos": msg.qos,
-                    "retain": msg.retain,
-                }
-                redis_client.push_message(message)
-                self._broadcast_topic(message)
 
     # ------------------------------------------------------------------ #
     #  Async broadcasts                                                    #
     # ------------------------------------------------------------------ #
-
-    def _broadcast_topic(self, message: dict) -> None:
-        if not self._loop or not self._topic_subscribers:
-            return
-        for cb in list(self._topic_subscribers):
-            try:
-                asyncio.run_coroutine_threadsafe(cb(message), self._loop)
-            except Exception as exc:
-                logger.debug("Topic broadcast error: %s", exc)
 
     def _broadcast_log(self, line: str) -> None:
         if not self._loop or not self._log_subscribers:

@@ -6,13 +6,14 @@ from fastapi import APIRouter, WebSocket, WebSocketDisconnect
 
 from services.mqtt_client import mqtt_client
 from services.log_watcher import log_watcher
+from services.redis_client import redis_client
 
 router = APIRouter()
 logger = logging.getLogger(__name__)
 
 
 # ------------------------------------------------------------------ #
-#  /ws/topics — live MQTT topic messages                              #
+#  /ws/topics — Redis snapshot + live Pub/Sub feed                    #
 # ------------------------------------------------------------------ #
 
 @router.websocket("/ws/topics")
@@ -20,29 +21,28 @@ async def ws_topics(websocket: WebSocket):
     await websocket.accept()
     logger.info("Topics WS client connected")
 
-    # Send buffered snapshot first
-    snapshot = mqtt_client.topic_messages
-    for msg in snapshot:
-        try:
-            await websocket.send_text(json.dumps({"type": "message", "data": msg}))
-        except Exception:
-            return
+    # Send stored history for all known topics as initial snapshot
+    for topic in redis_client.get_all_topics():
+        for msg in reversed(redis_client.get_history(topic)):
+            try:
+                await websocket.send_text(json.dumps({"type": "message", "data": msg}))
+            except Exception:
+                return
 
     async def on_message(message: dict):
         try:
             await websocket.send_text(json.dumps({"type": "message", "data": message}))
         except Exception:
-            mqtt_client.unsubscribe_topics(on_message)
+            redis_client.unsubscribe(on_message)
 
-    mqtt_client.subscribe_topics(on_message)
+    redis_client.subscribe(on_message)
     try:
         while True:
-            # Keep connection alive; client may send pings
             await websocket.receive_text()
     except WebSocketDisconnect:
         pass
     finally:
-        mqtt_client.unsubscribe_topics(on_message)
+        redis_client.unsubscribe(on_message)
         logger.info("Topics WS client disconnected")
 
 
