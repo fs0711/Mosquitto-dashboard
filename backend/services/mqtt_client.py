@@ -7,6 +7,7 @@ from typing import Callable, Set
 import paho.mqtt.client as mqtt
 
 from config import MQTT_HOST, MQTT_PORT, MQTT_USERNAME, MQTT_PASSWORD
+from services.redis_client import redis_client
 
 logger = logging.getLogger(__name__)
 
@@ -121,6 +122,7 @@ class MqttClient:
                     "retain": msg.retain,
                 }
                 self._topic_messages.append(message)
+                redis_client.push_message(message)
                 self._broadcast_topic(message)
 
     # ------------------------------------------------------------------ #

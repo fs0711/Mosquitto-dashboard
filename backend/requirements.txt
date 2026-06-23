@@ -8,3 +8,4 @@ cryptography==44.0.2
 PyJWT==2.8.0
 bcrypt==3.2.2
 passlib==1.7.4
+redis==5.2.1

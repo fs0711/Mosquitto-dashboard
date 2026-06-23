@@ -19,5 +19,11 @@ MOSQUITTO_PID: str = os.getenv("MOSQUITTO_PID", "/run/mosquitto/mosquitto.pid")
 
 CONFIG_MAX_BACKUPS: int = int(os.getenv("CONFIG_MAX_BACKUPS", "5"))
 
+REDIS_HOST: str = os.getenv("REDIS_HOST", "localhost")
+REDIS_PORT: int = int(os.getenv("REDIS_PORT", "6379"))
+REDIS_PASSWORD: str = os.getenv("REDIS_PASSWORD", "")
+REDIS_DB: int = int(os.getenv("REDIS_DB", "0"))
+TOPIC_HISTORY_LENGTH: int = int(os.getenv("TOPIC_HISTORY_LENGTH", "30"))
+
 BACKEND_HOST: str = os.getenv("BACKEND_HOST", "0.0.0.0")
 BACKEND_PORT: int = int(os.getenv("BACKEND_PORT", "8000"))

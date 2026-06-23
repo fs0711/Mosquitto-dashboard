@@ -7,8 +7,6 @@ import Dashboard from "./pages/Dashboard";
 import Listeners from "./pages/Listeners";
 import Topics from "./pages/Topics";
 import Logs from "./pages/Logs";
-import Users from "./pages/Users";
-import ACL from "./pages/ACL";
 import TLS from "./pages/TLS";
 import Config from "./pages/Config";
 import UserManagement from "./pages/UserManagement";
@@ -30,8 +28,6 @@ export default function App() {
             <Route path="listeners" element={<Listeners />} />
             <Route path="topics" element={<Topics />} />
             <Route path="logs" element={<Logs />} />
-            <Route path="users" element={<Users />} />
-            <Route path="acl" element={<ACL />} />
             <Route path="tls" element={<TLS />} />
             <Route path="config" element={<Config />} />
             <Route path="user-management" element={<UserManagement />} />

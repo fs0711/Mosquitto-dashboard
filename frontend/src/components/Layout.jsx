@@ -7,8 +7,6 @@ const NAV = [
   { to: "/listeners",label: "Listeners" },
   { to: "/topics",   label: "Topics" },
   { to: "/logs",     label: "Logs" },
-  { to: "/users",    label: "Users" },
-  { to: "/acl",      label: "ACL" },
   { to: "/tls",      label: "TLS Certs" },
   { to: "/config",   label: "Config" },
   { to: "/user-management", label: "User Management", adminOnly: true },

@@ -1,5 +1,6 @@
 import { useState, useCallback, useRef, useEffect } from "react";
 import { useWebSocket } from "../hooks/useWebSocket";
+import { fetchData } from "../utils";
 
 // ──────────────────────────────────────────────────────────────────────
 // Topic tree builder
@@ -59,6 +60,37 @@ function TreeNode({ name, node, path, selectedTopic, onSelect }) {
 }
 
 // ──────────────────────────────────────────────────────────────────────
+// Message row with expand/collapse for long payloads
+// ──────────────────────────────────────────────────────────────────────
+
+const PAYLOAD_TRUNCATE_LENGTH = 120;
+
+function MessageRow({ m }) {
+  const [expanded, setExpanded] = useState(false);
+  const isLong = m.payload.length > PAYLOAD_TRUNCATE_LENGTH;
+  const displayed = expanded || !isLong ? m.payload : m.payload.slice(0, PAYLOAD_TRUNCATE_LENGTH) + "…";
+
+  return (
+    <div className="border-b border-gray-50 pb-1">
+      <div className="flex gap-2">
+        <span className="text-orange-500 shrink-0">{m.topic}</span>
+        <span className="text-gray-600 break-all">{displayed}</span>
+        {m.retain && <span className="text-blue-400 shrink-0">R</span>}
+        <span className="text-gray-300 shrink-0">QoS{m.qos}</span>
+      </div>
+      {isLong && (
+        <button
+          onClick={() => setExpanded(e => !e)}
+          className="text-orange-400 hover:text-orange-600 text-xs mt-0.5"
+        >
+          {expanded ? "Show less" : "Show more"}
+        </button>
+      )}
+    </div>
+  );
+}
+
+// ──────────────────────────────────────────────────────────────────────
 // Main Topics page
 // ──────────────────────────────────────────────────────────────────────
 
@@ -67,8 +99,10 @@ export default function Topics() {
   const [messages, setMessages] = useState([]);   // flat feed (capped)
   const [selectedTopic, setSelectedTopic] = useState(null);
   const [search, setSearch] = useState("");
+  const [loadingHistory, setLoadingHistory] = useState(false);
   const treeRef = useRef({});
   const messagesRef = useRef([]);
+  const liveTopicsRef = useRef(new Set()); // topics seen in this session
 
   const onMessage = useCallback((evt) => {
     try {
@@ -76,6 +110,9 @@ export default function Topics() {
       if (type !== "message") return;
       const parts = data.topic.split("/").filter(Boolean);
       if (!parts.length) return;
+
+      // Track topics seen live so history isn't re-fetched for already-loaded ones
+      liveTopicsRef.current.add(data.topic);
 
       // Update flat feed
       messagesRef.current = [data, ...messagesRef.current].slice(0, 500);
@@ -91,6 +128,36 @@ export default function Topics() {
   }, []);
 
   useWebSocket("/ws/topics", onMessage);
+
+  // Fetch stored history from Redis when a topic is selected and hasn't been seen live yet
+  useEffect(() => {
+    if (!selectedTopic) return;
+    // If we already have live messages for this topic, history is already flowing in
+    if (liveTopicsRef.current.has(selectedTopic)) return;
+
+    let cancelled = false;
+    setLoadingHistory(true);
+    fetchData(`/api/v1/topics/history?topic=${encodeURIComponent(selectedTopic)}`)
+      .then((history) => {
+        if (cancelled || !history.length) return;
+        // Merge history into flat feed and tree without duplicating live messages
+        const newTree = { ...treeRef.current };
+        const existing = new Set(messagesRef.current.map(m => m.topic + m.payload));
+        const toAdd = history.filter(m => !existing.has(m.topic + m.payload));
+        if (!toAdd.length) return;
+        messagesRef.current = [...messagesRef.current, ...toAdd].slice(0, 500);
+        for (const m of toAdd) {
+          setNestedPath(newTree, m.topic.split("/"), m);
+        }
+        treeRef.current = newTree;
+        setMessages([...messagesRef.current]);
+        setTree({ ...treeRef.current });
+      })
+      .catch(() => {})
+      .finally(() => { if (!cancelled) setLoadingHistory(false); });
+
+    return () => { cancelled = true; };
+  }, [selectedTopic]);
 
   const filteredMessages = messages.filter(m =>
     !selectedTopic || m.topic === selectedTopic || m.topic.startsWith(selectedTopic + "/")
@@ -129,6 +196,7 @@ export default function Topics() {
         {/* Message feed */}
         <div className="card flex-1 flex flex-col overflow-hidden">
           <div className="card-header flex items-center gap-3 py-3">
+            {loadingHistory && <span className="text-xs text-gray-400 animate-pulse">Loading history…</span>}
             <input
               type="text"
               placeholder="Filter by topic or payload…"
@@ -147,12 +215,7 @@ export default function Topics() {
               <p className="text-gray-400">No messages{selectedTopic ? ` for ${selectedTopic}` : ""}.</p>
             )}
             {filteredMessages.map((m, i) => (
-              <div key={i} className="flex gap-2 border-b border-gray-50 pb-1">
-                <span className="text-orange-500 shrink-0">{m.topic}</span>
-                <span className="text-gray-600 truncate">{m.payload}</span>
-                {m.retain && <span className="text-blue-400 shrink-0">R</span>}
-                <span className="text-gray-300 shrink-0">QoS{m.qos}</span>
-              </div>
+              <MessageRow key={i} m={m} />
             ))}
           </div>
         </div>

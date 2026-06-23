@@ -11,7 +11,8 @@ from config import BACKEND_HOST, BACKEND_PORT
 from services.mqtt_client import mqtt_client
 from services.log_watcher import log_watcher
 from services.database import init_database
-from routers import systree, listeners, websocket, users, acl, config, tls, broker, auth
+from services.redis_client import redis_client
+from routers import systree, listeners, websocket, users, acl, config, tls, broker, auth, topics
 
 logging.basicConfig(
     level=logging.INFO,
@@ -24,6 +25,7 @@ logger = logging.getLogger(__name__)
 async def lifespan(app: FastAPI):
     # Initialize database
     init_database()
+    redis_client.connect()
     loop = asyncio.get_event_loop()
     mqtt_client.start(loop)
     log_watcher.start()
@@ -31,6 +33,7 @@ async def lifespan(app: FastAPI):
     yield
     mqtt_client.stop()
     log_watcher.stop()
+    redis_client.disconnect()
     logger.info("Mosquitto Dashboard backend stopped")
 
 
@@ -64,6 +67,7 @@ app.include_router(acl.router)
 app.include_router(config.router)
 app.include_router(tls.router)
 app.include_router(broker.router)
+app.include_router(topics.router)
 
 # Serve compiled React SPA from ../frontend/dist if it exists
 _frontend_dist = Path(__file__).parent.parent / "frontend" / "dist"
