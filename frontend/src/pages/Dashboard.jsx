@@ -217,7 +217,7 @@ export default function Dashboard() {
           </div>
           <div className="text-xs text-gray-500">{get("$SYS/broker/version") ?? "—"}</div>
           <div className="text-xs text-gray-500">
-            Uptime: {sys["$SYS/broker/uptime"] ? secondsToIntervalString(Number(sys["$SYS/broker/uptime"])) : "—"}
+            Uptime: {sys["$SYS/broker/uptime"] ? secondsToIntervalString(parseInt(sys["$SYS/broker/uptime"], 10)) : "—"}
           </div>
         </div>
       </div>
